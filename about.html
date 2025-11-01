@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>About TerraSync</title>
+  <script src="https://kit.fontawesome.com/a2d9d5a64f.js" crossorigin="anonymous"></script>
+  <style>
+    /* ===== Base & Theme ===== */
+    * { margin:0; padding:0; box-sizing:border-box; font-family:"Poppins",sans-serif; }
+
+    :root {
+      --accent-color:#0078ff;
+      --accent-rgb:0,120,255;
+    }
+
+    body {
+      min-height:100vh;
+      width:100%;
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      background-size:cover;
+      background-position:center;
+      color:#222;
+      transition:background 0.5s ease, color 0.3s ease;
+      overflow-x:hidden;
+    }
+
+    body.dark-mode {
+      background-color:#1a1a1a;
+      color:white;
+    }
+
+    /* ===== Header Container ===== */
+    .header-container {
+      position:fixed;
+      top:20px;
+      left:20px;
+      display:flex;
+      align-items:center;
+      gap:16px;
+      z-index:2000;
+    }
+
+    .back-btn {
+      padding: 10px 20px;
+      background: rgba(255, 255, 255, 0.95);
+      color: #525252;
+      border: none;
+      border-radius: 50px;
+      font-weight: 500;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.95rem;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+      backdrop-filter: blur(10px);
+      transition: all 0.2s ease;
+      letter-spacing: 0.2px;
+    }
+    
+    .back-btn i {
+      font-size: 0.85rem;
+      transition: transform 0.2s ease;
+    }
+    
+    .back-btn:hover {
+      background: rgba(255, 255, 255, 0.98);
+      transform: translateX(-2px);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+    }
+    
+    .back-btn:hover i {
+      transform: translateX(-2px);
+    }
+
+    .dark-mode .back-btn {
+      background: rgba(30, 30, 30, 0.95);
+      color: #e0e0e0;
+    }
+    
+    .dark-mode .back-btn:hover {
+      background: rgba(35, 35, 35, 0.98);
+    }
+
+    /* ===== About Section ===== */
+    #aboutSection {
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      text-align:center;
+      background:rgba(255,255,255,0.85);
+      border-radius:25px;
+      padding:40px 50px;
+      max-width:700px;
+      width:90%;
+      box-shadow:0 4px 16px rgba(0,0,0,0.3);
+      backdrop-filter:blur(12px);
+      border:1px solid rgba(255,255,255,0.2);
+      transition:all 0.3s ease;
+    }
+
+    .dark-mode #aboutSection {
+      background:rgba(17,17,17,0.8);
+      color:white;
+    }
+
+    .about-content h2 {
+      font-size:2rem;
+      color:var(--accent-color);
+      margin-bottom:16px;
+    }
+
+    .about-content p {
+      font-size:1rem;
+      line-height:1.6;
+      color:#333;
+      max-width:500px;
+    }
+
+    .dark-mode .about-content p { color:#ddd; }
+
+    .about-content p {
+      margin-bottom: 16px;
+    }
+
+    /* ===== Buttons ===== */
+    .btn {
+      padding:12px 24px;
+      background:linear-gradient(135deg,var(--accent-color),#0066cc);
+      color:white;
+      border:none;
+      border-radius:12px;
+      cursor:pointer;
+      transition:all 300ms cubic-bezier(.2,.9,.2,1);
+      margin-top:24px;
+      font-weight:500;
+      display:inline-flex;
+      align-items:center;
+      gap:10px;
+      box-shadow:0 8px 24px rgba(0,120,255,0.15);
+      font-size:1rem;
+      position:relative;
+      overflow:hidden;
+    }
+
+    .btn::before {
+      content:'';
+      position:absolute;
+      top:0;
+      left:0;
+      width:100%;
+      height:100%;
+      background:linear-gradient(135deg,rgba(255,255,255,0.1),rgba(255,255,255,0));
+      transition:transform 0.3s ease;
+    }
+
+    .btn:hover {
+      transform:translateY(-3px);
+      box-shadow:0 12px 36px rgba(0,120,255,0.25);
+    }
+    .btn:hover::before { transform:translateX(100%); }
+    .btn:active { transform:translateY(-1px) scale(0.98); }
+    .btn i { font-size:16px; opacity:0.95; }
+
+    /* ===== Modal ===== */
+    .modal-overlay {
+      position:fixed;
+      inset:0;
+      background:rgba(0,0,0,0.5);
+      display:none;
+      justify-content:center;
+      align-items:center;
+      z-index:1000;
+      backdrop-filter:blur(3px);
+    }
+
+    .modal {
+      background:linear-gradient(135deg,rgba(255,255,255,0.98),rgba(255,255,255,0.96));
+      padding:32px;
+      border-radius:20px;
+      box-shadow:0 10px 40px rgba(0,0,0,0.1);
+      max-width:680px;
+      width:92%;
+      position:relative;
+      animation:modalSlide 0.3s cubic-bezier(.2,.9,.2,1);
+      backdrop-filter:blur(10px);
+    }
+
+    .dark-mode .modal {
+      background:rgba(17,17,17,0.95);
+      color:white;
+    }
+
+    @keyframes modalSlide {
+      from{transform:translateY(-20px) scale(0.98);opacity:0;}
+      to{transform:translateY(0) scale(1);opacity:1;}
+    }
+
+    .close-btn {
+      position:absolute;
+      top:20px;
+      right:20px;
+      width:32px;
+      height:32px;
+      border-radius:16px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:24px;
+      cursor:pointer;
+      color:#666;
+      transition:all 0.3s ease;
+      background:rgba(0,0,0,0.05);
+    }
+
+    .close-btn:hover {
+      color:var(--accent-color);
+      background:rgba(var(--accent-rgb),0.1);
+      transform:rotate(90deg);
+    }
+
+    .modal h3 {
+      color:var(--accent-color);
+      margin-bottom:24px;
+      font-size:1.5rem;
+      font-weight:600;
+      position:relative;
+      display:inline-block;
+    }
+
+    .dev-profile { display:flex; gap:28px; align-items:flex-start; text-align:left; }
+    .dev-avatar { width:120px;height:120px;border-radius:16px;overflow:hidden;flex:0 0 120px;box-shadow:0 8px 32px rgba(0,0,0,0.1);position:relative;}
+    .dev-avatar img { width:100%;height:100%;object-fit:cover;display:block; }
+    .dev-info { font-size:15px;color:#555;flex:1; }
+    .dev-info strong {
+      background:linear-gradient(135deg,var(--accent-color),#0066cc);
+      -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+      display:block;margin-bottom:12px;font-size:1.5rem;font-weight:600;
+    }
+    .dev-info div { margin:8px 0;display:flex;align-items:center;gap:8px; }
+    .dev-info a {
+      color:var(--accent-color);text-decoration:none;font-weight:500;
+      padding:6px 12px;background:rgba(var(--accent-rgb),0.1);
+      border-radius:20px;transition:all 0.2s ease;display:inline-flex;align-items:center;gap:6px;
+    }
+    .dev-info a:hover { background:rgba(var(--accent-rgb),0.15);transform:translateY(-1px); }
+
+    /* ===== Responsive ===== */
+    @media(max-width:600px){
+      #aboutSection{padding:30px 20px;}
+      .dev-profile{flex-direction:column;align-items:center;text-align:center;gap:20px;}
+      .header-container {
+        top:12px;
+        left:12px;
+      }
+      .back-btn{
+        padding:10px 14px;
+        font-size:14px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Floating Back Button -->
+  <div class="header-container">
+    <button class="back-btn" onclick="goBack()">
+      <i class="fa-solid fa-chevron-left"></i> Back to Home
+    </button>
+  </div>
+
+  <!-- About Section -->
+  <div id="aboutSection" class="section active">
+    <div class="about-content">
+      <h2>About TerraSync</h2>
+      <p>
+        TerraSync is a modern weather visualization platform developed as an ITELEC Finals Project,
+        combining real-time data with intuitive design to deliver accurate weather insights.
+      </p>
+      <p>
+        Powered by industry-leading weather services including OpenWeatherMap, Open-Meteo API,
+        and dynamic data visualization through Chart.js to provide comprehensive and accurate
+        weather information.
+      </p>
+
+      <button class="btn dev-info-btn"><i class="fa-solid fa-code"></i> Meet the Developer</button>
+    </div>
+  </div>
+
+  <!-- Developer Info Modal -->
+  <div id="devInfoModal" class="modal-overlay">
+    <div class="modal">
+      <span class="close-btn">&times;</span>
+      <h3>Meet the Developer</h3>
+      <div class="dev-profile">
+        <div class="dev-avatar">
+          <img src="/assets/Hans.jpg" alt="Michael Hans" class="avatar-img">
+        </div>
+        <div class="dev-info">
+          <strong>Michael Hans Magbojos</strong>
+          <div><i class="fa-solid fa-code"></i> Full-stack Developer & Leader of The group</div>
+          <div><i class="fa-solid fa-laptop-code"></i> Developer and Designer of TerraSync</div>
+          <div><i class="fa-solid fa-user"></i> Age: 20</div>
+          <div><i class="fa-solid fa-graduation-cap"></i> BSIT-3A Student</div>
+          <div><i class="fa-solid fa-school"></i> First Asia Institute of Technology and Humanities</div>
+          <div>
+            <a href="https://github.com/MichaelHans32116" target="_blank">
+              <i class="fa-brands fa-github"></i> @MichaelHans32116
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Modal functionality
+    const modal = document.getElementById('devInfoModal');
+    const devInfoBtn = document.querySelector('.dev-info-btn');
+    const closeBtn = document.querySelector('.close-btn');
+
+    devInfoBtn.addEventListener('click', () => {
+      modal.style.display = 'flex';
+      document.body.style.overflow = 'hidden';
+    });
+
+    function closeModal() {
+      modal.style.display = 'none';
+      document.body.style.overflow = '';
+    }
+
+    closeBtn.addEventListener('click', closeModal);
+    window.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+
+    // Floating Back Button
+    function goBack() {
+      window.location.href = "index.html";
+    }
+
+    // ===== WeatherInsight Integration =====
+    let settings = { defaultCity: "Manila", accentColor: "#0078ff", theme: "light" };
+    const saved = localStorage.getItem("weatherAppSettings");
+    if (saved) settings = { ...settings, ...JSON.parse(saved) };
+    document.documentElement.style.setProperty('--accent-color', settings.accentColor);
+    if (settings.theme === "dark") document.body.classList.add("dark-mode");
+
+    function updateBackground(condition) {
+      let bgUrl;
+      const c = condition.toLowerCase();
+      if (c.includes("rain"))
+        bgUrl = "https://images.unsplash.com/photo-1501594907352-04cda38ebc29?auto=format&fit=crop&w=1600&q=80";
+      else if (c.includes("cloud"))
+        bgUrl = "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1600&q=80";
+      else if (c.includes("clear"))
+        bgUrl = "https://images.unsplash.com/photo-1502082553048-f009c37129b9?auto=format&fit=crop&w=1600&q=80";
+      else
+        bgUrl = "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1600&q=80";
+      document.body.style.backgroundImage = `url('${bgUrl}')`;
+    }
+
+    async function getWeatherBackground(city) {
+      try {
+        const apiKey = "73796b18f5a199981c744465d4df64c8"; // your OpenWeatherMap key
+        const url = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(city)}&appid=${apiKey}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        if (data.weather && data.weather[0].description) {
+          updateBackground(data.weather[0].description);
+        } else updateBackground("clear");
+      } catch (err) {
+        console.error("Weather fetch failed:", err);
+        updateBackground("clear");
+      }
+    }
+
+    getWeatherBackground(settings.defaultCity);
+  </script>
+</body>
+</html>
