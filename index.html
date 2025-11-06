@@ -14,6 +14,8 @@
       --accent-color: #0078ff;
       --accent-rgb: 0, 120, 255;
     }
+
+    /* zoom-control positioning is handled in script (moved out of CSS block) */
     body {
       height:100vh;width:100%;
       background-size:cover;background-position:center;
@@ -1294,6 +1296,7 @@
           zoomControl: false,
           dragging: false,
           scrollWheelZoom: false,
+          // we'll handle dblclick manually to trigger location lookups
           doubleClickZoom: false,
           boxZoom: false,
           keyboard: false,
@@ -1305,6 +1308,35 @@
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
           maxZoom: 24
         }).addTo(bgLeafletMap);
+
+        // Ensure tiles/layout render correctly right after init (fix: map not rendering until zoom button pressed)
+        try {
+          if (bgLeafletMap && typeof bgLeafletMap.whenReady === 'function') {
+            bgLeafletMap.whenReady(() => {
+              setTimeout(() => {
+                try { bgLeafletMap.invalidateSize(); bgLeafletMap.setView(bgLeafletMap.getCenter(), bgLeafletMap.getZoom()); } catch (e) {}
+              }, 250);
+            });
+          } else {
+            setTimeout(() => {
+              try { bgLeafletMap.invalidateSize(); bgLeafletMap.setView(bgLeafletMap.getCenter(), bgLeafletMap.getZoom()); } catch (e) {}
+            }, 350);
+          }
+        } catch (e) { console.warn('bg map whenReady patch failed', e); }
+
+        // When the user double-clicks the background map, treat it as a 'go here' action:
+        // fly the map to the clicked point and fetch weather/air for that location.
+        bgLeafletMap.on('dblclick', async function(e) {
+          try {
+            const { lat, lng } = e.latlng;
+            // Move map to clicked location with a closer city-level zoom
+            try { bgLeafletMap.flyTo([lat, lng], 13, { animate: true, duration: 0.9 }); } catch(e){}
+            // Fetch weather/air for that exact coordinate
+            try { await getWeatherByCoords(lat, lng); } catch (err) { console.warn('getWeatherByCoords failed', err); }
+          } catch (err) {
+            console.warn('dblclick handler error', err);
+          }
+        });
       } catch (err) {
         console.warn('Background Leaflet init failed:', err);
         bgLeafletMap = null;
@@ -1317,7 +1349,7 @@
       try {
         bgLeafletMap.dragging.enable();
         bgLeafletMap.scrollWheelZoom.enable();
-        bgLeafletMap.doubleClickZoom.enable();
+        // NOTE: do NOT enable the built-in doubleClickZoom. We use dblclick to trigger a location lookup.
         bgLeafletMap.boxZoom.enable();
         bgLeafletMap.touchZoom.enable();
         bgLeafletMap.keyboard.enable();
@@ -1335,7 +1367,6 @@
       try {
         try { bgLeafletMap.dragging.disable(); } catch(e){}
         try { bgLeafletMap.scrollWheelZoom.disable(); } catch(e){}
-        try { bgLeafletMap.doubleClickZoom.disable(); } catch(e){}
         try { bgLeafletMap.boxZoom.disable(); } catch(e){}
         try { bgLeafletMap.touchZoom.disable(); } catch(e){}
         try { bgLeafletMap.keyboard.disable(); } catch(e){}
@@ -1381,7 +1412,39 @@
       const zoomOutBtn = document.getElementById('zoomOut');
       if (zoomInBtn) zoomInBtn.addEventListener('click', () => { try { if (bgLeafletMap) bgLeafletMap.zoomIn(); } catch(e){} });
       if (zoomOutBtn) zoomOutBtn.addEventListener('click', () => { try { if (bgLeafletMap) bgLeafletMap.zoomOut(); } catch(e){} });
+      try { positionMapZoomControls(); } catch(e){}
     }
+
+    // Position the custom zoom controls so they avoid overlapping the navbar (desktop) or sit bottom-center (mobile)
+    function positionMapZoomControls() {
+      const mapZoomControls = document.getElementById('mapZoomControls');
+      if (!mapZoomControls) return;
+      const navbar = document.querySelector('.navbar');
+      const vw = window.innerWidth || document.documentElement.clientWidth;
+      // Ensure controls have measured width; if zero, defer a tick
+      if (mapZoomControls.offsetWidth === 0) {
+        setTimeout(positionMapZoomControls, 60);
+        return;
+      }
+      if (navbar && vw >= 769) {
+        const navRect = navbar.getBoundingClientRect();
+        // center controls horizontally under the navbar
+        const left = Math.max(8, Math.round(navRect.left + (navRect.width / 2) - (mapZoomControls.offsetWidth / 2)));
+        mapZoomControls.style.left = `${left}px`;
+        mapZoomControls.style.right = 'auto';
+        mapZoomControls.style.transform = 'none';
+        mapZoomControls.style.top = `${Math.round(navRect.bottom + 12)}px`;
+        mapZoomControls.style.bottom = 'auto';
+      } else {
+        // default mobile / fallback: bottom center
+        mapZoomControls.style.left = '50%';
+        mapZoomControls.style.transform = 'translateX(-50%)';
+        mapZoomControls.style.bottom = '90px';
+        mapZoomControls.style.top = 'auto';
+      }
+    }
+
+    window.addEventListener('resize', () => { try { positionMapZoomControls(); } catch(e){} });
 
     toggle.addEventListener("click", () => {
       toggle.classList.toggle("active");
@@ -1414,6 +1477,8 @@
       if (targetId) {
         document.getElementById(targetId).classList.add("active");
       }
+      // Reposition zoom controls after section changes so they don't overlap
+      setTimeout(() => { try { positionMapZoomControls(); } catch(e){} }, 50);
     }));
 
     function updateBackground(weatherObj) {
@@ -1467,7 +1532,7 @@
         // Clouds
         bgUrl = isDark
           ? 'https://images.unsplash.com/photo-1536244636800-a3f74db0f3cf?auto=format&fit=crop&w=1600&q=80'
-          : 'https://images.unsplash.com/photo-1534088568595-a066f410bcda?auto=format&fit=crop&w=1600&q=80';
+          : 'https://images.unsplash.com/photo-1499346030926-9a72daac6c63?auto=format&fit=crop&w=1600&q=80';
       } else {
         // Fallback: try to infer from description or use default
         if (desc.includes('rain') || desc.includes('drizzle')) {
@@ -1477,7 +1542,10 @@
         } else if (desc.includes('snow')) {
           bgUrl = 'https://images.unsplash.com/photo-1518983835933-5229d9b0fe10?auto=format&fit=crop&w=1600&q=80';
         } else if (desc.includes('cloud')) {
-          bgUrl = 'https://images.unsplash.com/photo-1534088568595-a066f410bcda?auto=format&fit=crop&w=1600&q=80';
+          // prefer a higher-resolution cloud image in light mode
+          bgUrl = isDark
+            ? 'https://images.unsplash.com/photo-1534088568595-a066f410bcda?auto=format&fit=crop&w=1600&q=80'
+            : 'https://images.unsplash.com/photo-1499346030926-9a72daac6c63?auto=format&fit=crop&w=1600&q=80';
         } else if (desc.includes('clear')) {
           bgUrl = 'https://images.unsplash.com/photo-1601297183305-6df142704ea2?auto=format&fit=crop&w=1600&q=80';
         } else {
@@ -1695,6 +1763,60 @@
       }
     }
 
+    // Fetch weather using latitude/longitude (used by map dblclick)
+    async function getWeatherByCoords(lat, lon) {
+      try {
+        const apiKey = "73796b18f5a199981c744465d4df64c8";
+        const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&units=metric&appid=${apiKey}`;
+        const res = await fetch(url);
+        const data = await res.json();
+
+        if (data.cod && Number(data.cod) !== 200) {
+          console.warn('getWeatherByCoords: non-200 response', data);
+          return null;
+        }
+
+        // Update global state and UI similar to getWeather
+        lastWeatherObj = data.weather && data.weather[0] ? data.weather[0] : null;
+        currentCity = `${data.name}${data.sys && data.sys.country ? ', ' + data.sys.country : ''}`;
+        currentTemp = Number(data.main.temp);
+        currentFeels = Number(data.main.feels_like);
+
+        document.getElementById("city").textContent = currentCity;
+        document.getElementById("airCity").textContent = currentCity;
+        document.getElementById("date").textContent = new Date().toDateString();
+
+        // Simplify description and display
+        let desc = data.weather[0].description.toLowerCase();
+        let simplifiedDesc = desc;
+        if (desc.includes('broken clouds') || desc.includes('scattered clouds')) simplifiedDesc = 'cloudy';
+        else if (desc.includes('few clouds')) simplifiedDesc = 'partly cloudy';
+        else if (desc.includes('overcast')) simplifiedDesc = 'cloudy';
+        else if (desc.includes('mist') || desc.includes('fog')) simplifiedDesc = 'foggy';
+        else if (desc.includes('thunderstorm')) simplifiedDesc = 'thunderstorms';
+        else if (desc.includes('drizzle')) simplifiedDesc = 'light rain';
+        simplifiedDesc = simplifiedDesc.charAt(0).toUpperCase() + simplifiedDesc.slice(1);
+        document.getElementById("weatherDesc").textContent = simplifiedDesc;
+        document.getElementById("humidity").textContent = data.main.humidity + "%";
+        document.getElementById("wind").textContent = (data.wind.speed * 3.6).toFixed(1) + " km/h";
+        document.getElementById("realtime").textContent = "Real Time: " + new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+        updateTemperatureDisplay();
+        // Update background image and air quality for these coords
+        if (data.weather && data.weather[0]) updateBackground(data.weather[0]);
+        getAirQuality(currentCity, lat, lon);
+
+        // Keep map centered on the clicked point if map exists
+        try { if (bgLeafletMap) bgLeafletMap.flyTo([lat, lon], 13, { animate: true, duration: 0.9 }); } catch(e){}
+
+        drawChart();
+        return data;
+      } catch (err) {
+        console.error('getWeatherByCoords error', err);
+        return null;
+      }
+    }
+
     async function updateClimateData(lat, lon) {
       try {
         const currentDate = new Date();
@@ -1877,7 +1999,10 @@
         // but still below overlay UI elements that intentionally use higher z-index (header/navbar/chat).
         if (bgMapEl) bgMapEl.style.zIndex = '0';
         if (overlayEl) overlayEl.style.zIndex = '-1';
-        if (mapZoomControls) mapZoomControls.style.display = 'flex';
+        if (mapZoomControls) {
+          mapZoomControls.style.display = 'flex';
+          try { positionMapZoomControls(); } catch(e) { }
+        }
         // enable user interaction on the background map after the overlay fade
         setTimeout(() => {
           try {

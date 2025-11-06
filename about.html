@@ -370,7 +370,7 @@
   padding: 18px 22px;
   margin-bottom: 16px;
   box-shadow: 0 2px 12px rgba(0,0,0,0.05);
-  transition: all 0.3s ease;
+  transition: all 0.3s ease;  
   border: 1px solid rgba(0,0,0,0.05);
 }
 
@@ -660,46 +660,55 @@
     // ===== WeatherInsight Integration =====
     let settings = { defaultCity: "Manila", accentColor: "#0078ff", theme: "light" };
     const saved = localStorage.getItem("weatherAppSettings");
-    if (saved) {
-      try {
-        settings = { ...settings, ...JSON.parse(saved) };
-      } catch (err) {
-        console.warn('Could not parse weatherAppSettings from localStorage', err);
-      }
-    }
-
-    // Apply accent color
-    if (settings.accentColor) document.documentElement.style.setProperty('--accent-color', settings.accentColor);
-
-    // Ensure theme state matches saved settings
+    if (saved) settings = { ...settings, ...JSON.parse(saved) };
+    document.documentElement.style.setProperty('--accent-color', settings.accentColor);
     if (settings.theme === "dark") document.body.classList.add("dark-mode");
-    else document.body.classList.remove("dark-mode");
 
-    // Sync theme/accent across tabs/windows when localStorage changes
-    window.addEventListener('storage', (e) => {
-      if (e.key !== 'weatherAppSettings') return;
-      try {
-        const updated = JSON.parse(e.newValue || '{}');
-        if (updated.accentColor) document.documentElement.style.setProperty('--accent-color', updated.accentColor);
-        if (updated.theme === 'dark') document.body.classList.add('dark-mode');
-        else document.body.classList.remove('dark-mode');
-      } catch (err) {
-        console.warn('Failed to parse weatherAppSettings from storage event', err);
-      }
-    });
+  // Use static nature images by default (set to true to enable GIFs)
+  const useGIFBackgrounds = false;
 
     function updateBackground(condition) {
       let bgUrl;
-      const c = condition.toLowerCase();
-      if (c.includes("rain"))
-        bgUrl = "https://images.unsplash.com/photo-1501594907352-04cda38ebc29?auto=format&fit=crop&w=1600&q=80";
-      else if (c.includes("cloud"))
-        bgUrl = "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1600&q=80";
-      else if (c.includes("clear"))
-        bgUrl = "https://images.unsplash.com/photo-1502082553048-f009c37129b9?auto=format&fit=crop&w=1600&q=80";
-      else
-        bgUrl = "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1600&q=80";
-      document.body.style.backgroundImage = `url('${bgUrl}')`;
+      const c = (condition || '').toLowerCase();
+
+      if (useGIFBackgrounds) {
+        // GIF sources (common animated clips). Replace these with your preferred GIFs if needed.
+        if (c.includes("rain"))
+          // gentle rain loop
+          bgUrl = "https://media.giphy.com/media/26tOZ42Mg6pbTUPHW/giphy.gif";
+        else if (c.includes("cloud"))
+          // moving clouds
+          bgUrl = "https://media.giphy.com/media/3o6gbbuLW76jkt8vIc/giphy.gif";
+        else if (c.includes("clear"))
+          // bright sun / clear skies
+          bgUrl = "https://media.giphy.com/media/1BXa2alBjrCXC/giphy.gif";
+        else
+          // subtle ocean motion as a neutral fallback
+          bgUrl = "https://media.giphy.com/media/3o6Mbbs879ozZ9Yic0/giphy.gif";
+
+        // apply GIF as background-image (browsers will loop animated GIFs automatically)
+        document.body.style.backgroundImage = `url('${bgUrl}')`;
+        // ensure background sizing/position remain correct
+        document.body.style.backgroundSize = 'cover';
+        document.body.style.backgroundPosition = 'center';
+      } else {
+        // static fallback images (original Unsplash choices)
+        if (c.includes("rain"))
+          bgUrl = "https://images.unsplash.com/photo-1501594907352-04cda38ebc29?auto=format&fit=crop&w=1600&q=80";
+        else if (c.includes("cloud")) {
+          // prefer a higher-resolution, cleaner cloud image for light theme
+          if (settings && settings.theme === 'light') {
+            bgUrl = "https://images.unsplash.com/photo-1499346030926-9a72daac6c63?auto=format&fit=crop&w=1600&q=80";
+          } else {
+            bgUrl = "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1600&q=80";
+          }
+        }
+        else if (c.includes("clear"))
+          bgUrl = "https://images.unsplash.com/photo-1502082553048-f009c37129b9?auto=format&fit=crop&w=1600&q=80";
+        else
+          bgUrl = "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1600&q=80";
+        document.body.style.backgroundImage = `url('${bgUrl}')`;
+      }
     }
 
     async function getWeatherBackground(city) {
