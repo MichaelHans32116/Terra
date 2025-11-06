@@ -2333,9 +2333,53 @@
     sendButton.addEventListener('click', async () => {
       const question = userInput.value.trim();
       if (!question) return;
-      
+
       addMessage(question, true);
       userInput.value = '';
+
+      // --- Location detection: if the user typed a place (e.g. "Cebu", "show me Cebu", "weather in Cebu"),
+      // treat it as a request to go to that place on the map and fetch its weather.
+      try {
+        const qRaw = question.trim();
+        const q = qRaw.toLowerCase();
+        // If the message contains explicit weather/question keywords, do not treat it as a pure place name
+        const intentKeywords = ['temperature','humidity','wind','forecast','umbrella','sunrise','sunset','aqi','air','weather','what','how','when','is','are','does','do','should'];
+        const hasIntent = intentKeywords.some(k => q.includes(k));
+
+        // Heuristic: if short (<= 4 words), contains no punctuation/questions, and doesn't include intent keywords,
+        // we'll treat it as a location name.
+        const wordCount = qRaw.split(/\s+/).filter(Boolean).length;
+        const looksLikePlace = wordCount > 0 && wordCount <= 4 && !/[?!.]/.test(qRaw) && !hasIntent && !/\d/.test(qRaw);
+
+        if (looksLikePlace) {
+          addMessage(`Looking up "${qRaw}" on the map and fetching weather...`);
+          // Try geocoding with the lightweight Open-Meteo geocoding helper already used by the search bar
+          try {
+            const places = await fetchSuggestions(qRaw);
+            if (places && places.length > 0) {
+              const p = places[0];
+              // If coords are present use coords for best accuracy
+              if (typeof p.latitude !== 'undefined' && typeof p.longitude !== 'undefined') {
+                await getWeatherByCoords(p.latitude, p.longitude);
+              } else {
+                // Fallback: call getWeather with the returned name (may include country)
+                await getWeather(`${p.name}${p.country ? ', ' + p.country : ''}`);
+              }
+              return; // handled as location request
+            } else {
+              // No geocoding results - fallback to OpenWeatherMap city search
+              await getWeather(qRaw);
+              return;
+            }
+          } catch (err) {
+            console.warn('Location lookup failed, falling back to city search:', err);
+            await getWeather(qRaw);
+            return;
+          }
+        }
+      } catch (e) {
+        console.warn('Location detection error:', e);
+      }
       
       if (!lastWeatherData) {
         addMessage("I don't have any weather data yet. Try searching for a city first!");
