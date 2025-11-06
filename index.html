@@ -1262,7 +1262,7 @@
     </div>
     <div class="chat-messages">
       <div class="message assistant">
-        Hello! 👋 I'm your weather assistant. I can help explain weather conditions and provide insights as you explore different cities. Try searching for a city or ask me about the current weather!
+        Hello! 👋 I'm Hans, your weather assistant. I can help explain weather conditions and provide insights as you explore different cities. Try searching for a city or ask me about the current weather!
       </div>
     </div>
     <div class="chat-input">
@@ -1290,7 +1290,8 @@
       try {
         // Create the map in the #bgMap container and disable user interactions
         bgLeafletMap = L.map('bgMap', {
-          center: [12.8797, 122.5654],
+    // Default to Manila city center so the map matches the default app city
+    center: [14.5995, 120.9842],
           zoom: 13,
           attributionControl: false,
           zoomControl: false,
@@ -1776,8 +1777,10 @@
           return null;
         }
 
-        // Update global state and UI similar to getWeather
-        lastWeatherObj = data.weather && data.weather[0] ? data.weather[0] : null;
+  // Update global state and UI similar to getWeather
+  lastWeatherObj = data.weather && data.weather[0] ? data.weather[0] : null;
+  // Keep lastWeatherData in sync so chat has latest context when map is used
+  try { lastWeatherData = data; } catch (e) { /* ignore */ }
         currentCity = `${data.name}${data.sys && data.sys.country ? ', ' + data.sys.country : ''}`;
         currentTemp = Number(data.main.temp);
         currentFeels = Number(data.main.feels_like);
@@ -1804,7 +1807,15 @@
         updateTemperatureDisplay();
         // Update background image and air quality for these coords
         if (data.weather && data.weather[0]) updateBackground(data.weather[0]);
-        getAirQuality(currentCity, lat, lon);
+        // Await air quality so the assistant can include AQ details in its explanation
+        try {
+          await getAirQuality(currentCity, lat, lon);
+        } catch (e) { console.warn('getAirQuality (coords) failed', e); }
+
+        // Update the chat assistant with the new location automatically (includes AQ if available)
+        try {
+          await generateWeatherExplanation(data);
+        } catch (e) { console.warn('generateWeatherExplanation (coords) failed', e); }
 
         // Keep map centered on the clicked point if map exists
         try { if (bgLeafletMap) bgLeafletMap.flyTo([lat, lon], 13, { animate: true, duration: 0.9 }); } catch(e){}
@@ -1844,6 +1855,45 @@
           <h2>Climate Data</h2>
           <p>Unable to fetch climate data for this location</p>
         `;
+      }
+    }
+
+    // Fetch a short 3-day forecast using Open-Meteo (no API key required)
+    async function getForecastByCoords(lat, lon, days = 3) {
+      try {
+        if (!lat || !lon) return null;
+        const start = new Date();
+        const startDate = start.toISOString().split('T')[0];
+        const end = new Date();
+        end.setDate(end.getDate() + (days - 1));
+        const endDate = end.toISOString().split('T')[0];
+
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,uv_index_max&timezone=auto&start_date=${startDate}&end_date=${endDate}`;
+        const res = await fetch(url);
+        const data = await res.json();
+
+        if (!data || !data.daily || !data.daily.time) return null;
+
+        let summary = `Forecast (${startDate} → ${endDate}):\n`;
+        const dates = data.daily.time || [];
+        const tmax = data.daily.temperature_2m_max || [];
+        const tmin = data.daily.temperature_2m_min || [];
+        const precip = data.daily.precipitation_sum || [];
+        const uv = data.daily.uv_index_max || [];
+
+        for (let i = 0; i < dates.length; i++) {
+          const d = dates[i];
+          const max = typeof tmax[i] !== 'undefined' ? `${tmax[i].toFixed(1)}°C` : 'N/A';
+          const min = typeof tmin[i] !== 'undefined' ? `${tmin[i].toFixed(1)}°C` : 'N/A';
+          const p = typeof precip[i] !== 'undefined' ? `${precip[i].toFixed(1)} mm` : 'N/A';
+          const u = typeof uv[i] !== 'undefined' ? `${Math.round(uv[i])}` : 'N/A';
+          summary += `${d}: ${max} / ${min}, precip ${p}, UV ${u}\n`;
+        }
+
+        return summary;
+      } catch (err) {
+        console.warn('getForecastByCoords failed', err);
+        return null;
       }
     }
 
@@ -2240,6 +2290,21 @@
         explanation += "\nWind is quite strong, be careful outdoors.";
       }
 
+      // If we have a recent air-quality reading, include it in the explanation
+      try {
+        if (lastAirQuality && typeof lastAirQuality.aqi !== 'undefined') {
+          const a = lastAirQuality.aqi;
+          const pm25 = typeof lastAirQuality.pm25 !== 'undefined' ? lastAirQuality.pm25.toFixed(1) : 'N/A';
+          const pm10 = typeof lastAirQuality.pm10 !== 'undefined' ? lastAirQuality.pm10.toFixed(1) : 'N/A';
+          const status = a <= 50 ? 'Good' : a <= 100 ? 'Moderate' : a <= 150 ? 'Unhealthy for sensitive groups' : 'Unhealthy';
+          explanation += `\nAir Quality: AQI ${a} — ${status}. PM2.5: ${pm25} µg/m³, PM10: ${pm10} µg/m³.`;
+        } else {
+          explanation += `\nAir quality data is being fetched; check the Air section for more details.`;
+        }
+      } catch (e) {
+        // ignore AQ append errors
+      }
+
       addMessage(explanation);
     }
 
@@ -2280,6 +2345,42 @@
       try {
         // Process user's question about weather with more capabilities
         const q = question.toLowerCase();
+
+        // 1) Simple unit conversion: "convert 20c to f" or "convert 68 f to c"
+        const convMatch = q.match(/convert\s+([+-]?\d+(?:\.\d+)?)\s*°?\s*(c|f)\s*(?:to|in)\s*(c|f)/i);
+        if (convMatch) {
+          const val = Number(convMatch[1]);
+          const from = convMatch[2].toLowerCase();
+          const to = convMatch[3].toLowerCase();
+          let out = '';
+          if (from === to) out = `${val}°${from.toUpperCase()} is ${val}°${to.toUpperCase()}.`;
+          else if (from === 'c' && to === 'f') out = `${val}°C = ${(val * 9/5 + 32).toFixed(1)}°F`;
+          else if (from === 'f' && to === 'c') out = `${val}°F = ${((val - 32) * 5/9).toFixed(1)}°C`;
+          addMessage(out);
+          return;
+        }
+
+        // 2) Forecast requests (uses Open-Meteo)
+        if (q.includes('forecast') || q.includes('3 day') || q.includes('3-day')) {
+          if (!lastWeatherData || !lastWeatherData.coord) {
+            addMessage("I don't know the coordinates yet. Search or click a location on the map first.");
+            return;
+          }
+          const lat = lastWeatherData.coord.lat;
+          const lon = lastWeatherData.coord.lon;
+          addMessage('Fetching a short 3-day forecast...');
+          const f = await getForecastByCoords(lat, lon, 3);
+          if (f) addMessage(f);
+          else addMessage('Sorry — unable to fetch forecast right now.');
+          return;
+        }
+
+        // Default weather queries rely on lastWeatherData
+        if (!lastWeatherData) {
+          addMessage("I don't have any weather data yet. Try searching for a city first!");
+          return;
+        }
+
         let response = "I'll help explain the weather conditions:\n\n";
 
         if (q.includes('temperature')) {
