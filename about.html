@@ -231,10 +231,41 @@
       display:inline-block;
     }
 
-    .dev-profile { display:flex; gap:28px; align-items:flex-start; text-align:left; }
-    .dev-avatar { width:120px;height:120px;border-radius:16px;overflow:hidden;flex:0 0 120px;box-shadow:0 8px 32px rgba(0,0,0,0.1);position:relative;}
-    .dev-avatar img { width:100%;height:100%;object-fit:cover;display:block; }
+    .dev-profile { 
+      display:flex; 
+      gap:28px; 
+      align-items:flex-start; 
+      text-align:left;
+      min-height:200px;
+    }
+    
+    .dev-avatar { 
+      width:120px;
+      height:120px;
+      border-radius:16px;
+      overflow:hidden;
+      flex:0 0 120px;
+      box-shadow:0 8px 32px rgba(0,0,0,0.1);
+      position:relative;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 48px;
+      color: white;
+      font-weight: 600;
+    }
+    
+    .dev-avatar img { 
+      width:100%;
+      height:100%;
+      object-fit:cover;
+      display:block; 
+    }
+    
     .dev-info { font-size:15px;color:#555;flex:1; }
+    .dark-mode .dev-info { color:#bbb; }
+    
     .dev-info strong {
       background:linear-gradient(135deg,var(--accent-color),#0066cc);
       -webkit-background-clip:text;-webkit-text-fill-color:transparent;
@@ -248,6 +279,62 @@
     }
     .dev-info a:hover { background:rgba(var(--accent-rgb),0.15);transform:translateY(-1px); }
 
+    /* Navigation Buttons */
+    .nav-buttons {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 24px;
+      padding-top: 20px;
+      border-top: 1px solid rgba(0,0,0,0.1);
+    }
+
+    .dark-mode .nav-buttons {
+      border-top-color: rgba(255,255,255,0.1);
+    }
+
+    .nav-btn {
+      padding: 10px 20px;
+      background: rgba(var(--accent-rgb), 0.1);
+      color: var(--accent-color);
+      border: 1px solid rgba(var(--accent-rgb), 0.2);
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.3s ease;
+      font-size: 0.95rem;
+    }
+
+    .nav-btn:hover {
+      background: rgba(var(--accent-rgb), 0.15);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(var(--accent-rgb), 0.2);
+    }
+
+    .nav-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .nav-btn:disabled:hover {
+      transform: none;
+      box-shadow: none;
+    }
+
+    .dev-counter {
+      color: var(--accent-color);
+      font-weight: 600;
+      font-size: 0.95rem;
+    }
+
+    .dark-mode .dev-counter {
+      color: #5ca9ff;
+    }
+
     /* ===== Responsive ===== */
     @media(max-width:600px){
       #aboutSection{padding:30px 20px;}
@@ -259,6 +346,14 @@
       .back-btn{
         padding:10px 14px;
         font-size:14px;
+      }
+      .nav-buttons {
+        flex-direction: column;
+        gap: 12px;
+      }
+      .nav-btn {
+        width: 100%;
+        justify-content: center;
       }
     }
   </style>
@@ -285,7 +380,7 @@
         weather information.
       </p>
 
-      <button class="btn dev-info-btn"><i class="fa-solid fa-code"></i> Meet the Developer</button>
+      <button class="btn dev-info-btn"><i class="fa-solid fa-code"></i> Meet the Developers</button>
     </div>
   </div>
 
@@ -293,35 +388,140 @@
   <div id="devInfoModal" class="modal-overlay">
     <div class="modal">
       <span class="close-btn">&times;</span>
-      <h3>Meet the Developer</h3>
-      <div class="dev-profile">
-        <div class="dev-avatar">
-          <img src="/assets/Hans.jpg" alt="Michael Hans" class="avatar-img">
-        </div>
-        <div class="dev-info">
-          <strong>Michael Hans Magbojos</strong>
-          <div><i class="fa-solid fa-code"></i> Full-stack Developer & Leader of The group</div>
-          <div><i class="fa-solid fa-laptop-code"></i> Developer and Designer of TerraSync</div>
-          <div><i class="fa-solid fa-user"></i> Age: 20</div>
-          <div><i class="fa-solid fa-graduation-cap"></i> BSIT-3A Student</div>
-          <div><i class="fa-solid fa-school"></i> First Asia Institute of Technology and Humanities</div>
-          <div>
-            <a href="https://github.com/MichaelHans32116" target="_blank">
-              <i class="fa-brands fa-github"></i> @MichaelHans32116
-            </a>
-          </div>
-        </div>
+      <h3>Meet the Developers</h3>
+      <div id="devProfileContainer" class="dev-profile">
+        <!-- Developer profiles will be dynamically inserted here -->
+      </div>
+      <div class="nav-buttons">
+        <button class="nav-btn" id="prevBtn">
+          <i class="fa-solid fa-chevron-left"></i> Previous
+        </button>
+        <span class="dev-counter" id="devCounter">1 / 5</span>
+        <button class="nav-btn" id="nextBtn">
+          Next <i class="fa-solid fa-chevron-right"></i>
+        </button>
       </div>
     </div>
   </div>
 
   <script>
+    // Developer data
+    const developers = [
+      {
+        name: "Michael Hans Magbojos",
+        role: "Full-stack Developer & Team Leader",
+        description: "Developer and Designer of TerraSync",
+        age: 20,
+        course: "BSIT-3A Student",
+        school: "First Asia Institute of Technology and Humanities",
+        github: "MichaelHans32116",
+        avatar: "/assets/Hans.jpg",
+        hasImage: true
+      },
+      {
+        name: "Alex Bumatay",
+        role: "Developer",
+        description: "Developer and Designer of TerraSync",
+        age: 21,
+        course: "BSIT-3A Student",
+        school: "First Asia Institute of Technology and Humanities",
+        github: "Axel0Tell",
+        avatar: "/assets/alex.jpg",
+        hasImage: true
+      },
+      {
+        name: "John Kiel Kondo",
+        role: "Developer",
+        description: "UI/UX Designer & Developer",
+        age: 20,
+        course: "BSIT-3A Student",
+        school: "First Asia Institute of Technology and Humanities",
+        github: "johnkielkondo",
+        avatar: "/assets/Kondo.png",
+        hasImage: true
+      },
+      {
+        name: "Miro Gonzales",
+        role: "Developer",
+        description: "Developer and Designer of TerraSync",
+        age: 20,
+        course: "BSIT-3A Student",
+        school: "First Asia Institute of Technology and Humanities",
+        github: "mgnzls",
+        avatar: "/assets/miro.jpg",
+        hasImage: true
+      },
+      {
+        name: "Marnel Platon",
+        role: "Developer",
+        description: "Developer and Designer of TerraSync",
+        age: 21,
+        course: "BSIT-3A Student",
+        school: "First Asia Institute of Technology and Humanities",
+        github: "P-june",
+        avatar: "/assets/june.jpeg",
+        hasImage: true
+      },
+      {
+        name: "Joaquin Magpantay",
+        role: "Developer",
+        description: "Developer and Designer of TerraSync",
+        age: 24,
+        course: "BSIT-3A Student",
+        school: "First Asia Institute of Technology and Humanities",
+        github: "P-june",
+        avatar: "/assets/joaquin.jpeg",
+        hasImage: true
+      }
+    ];
+
+    let currentDevIndex = 0;
+
+    function renderDeveloper(index) {
+      const dev = developers[index];
+      const container = document.getElementById('devProfileContainer');
+      
+      const avatarContent = dev.hasImage 
+        ? `<img src="${dev.avatar}" alt="${dev.name}">`
+        : dev.initials;
+      
+      container.innerHTML = `
+        <div class="dev-avatar">
+          ${avatarContent}
+        </div>
+        <div class="dev-info">
+          <strong>${dev.name}</strong>
+          <div><i class="fa-solid fa-code"></i> ${dev.role}</div>
+          <div><i class="fa-solid fa-laptop-code"></i> ${dev.description}</div>
+          <div><i class="fa-solid fa-user"></i> Age: ${dev.age}</div>
+          <div><i class="fa-solid fa-graduation-cap"></i> ${dev.course}</div>
+          <div><i class="fa-solid fa-school"></i> ${dev.school}</div>
+          <div>
+            <a href="https://github.com/${dev.github}" target="_blank">
+              <i class="fa-brands fa-github"></i> @${dev.github}
+            </a>
+          </div>
+        </div>
+      `;
+
+      // Update counter
+      document.getElementById('devCounter').textContent = `${index + 1} / ${developers.length}`;
+
+      // Update button states
+      document.getElementById('prevBtn').disabled = index === 0;
+      document.getElementById('nextBtn').disabled = index === developers.length - 1;
+    }
+
     // Modal functionality
     const modal = document.getElementById('devInfoModal');
     const devInfoBtn = document.querySelector('.dev-info-btn');
     const closeBtn = document.querySelector('.close-btn');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
 
     devInfoBtn.addEventListener('click', () => {
+      currentDevIndex = 0;
+      renderDeveloper(currentDevIndex);
       modal.style.display = 'flex';
       document.body.style.overflow = 'hidden';
     });
@@ -333,6 +533,36 @@
 
     closeBtn.addEventListener('click', closeModal);
     window.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+
+    // Navigation
+    prevBtn.addEventListener('click', () => {
+      if (currentDevIndex > 0) {
+        currentDevIndex--;
+        renderDeveloper(currentDevIndex);
+      }
+    });
+
+    nextBtn.addEventListener('click', () => {
+      if (currentDevIndex < developers.length - 1) {
+        currentDevIndex++;
+        renderDeveloper(currentDevIndex);
+      }
+    });
+
+    // Keyboard navigation
+    document.addEventListener('keydown', (e) => {
+      if (modal.style.display === 'flex') {
+        if (e.key === 'ArrowLeft' && currentDevIndex > 0) {
+          currentDevIndex--;
+          renderDeveloper(currentDevIndex);
+        } else if (e.key === 'ArrowRight' && currentDevIndex < developers.length - 1) {
+          currentDevIndex++;
+          renderDeveloper(currentDevIndex);
+        } else if (e.key === 'Escape') {
+          closeModal();
+        }
+      }
+    });
 
     // Floating Back Button
     function goBack() {
@@ -362,7 +592,7 @@
 
     async function getWeatherBackground(city) {
       try {
-        const apiKey = "73796b18f5a199981c744465d4df64c8"; // your OpenWeatherMap key
+        const apiKey = "73796b18f5a199981c744465d4df64c8";
         const url = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(city)}&appid=${apiKey}`;
         const res = await fetch(url);
         const data = await res.json();
