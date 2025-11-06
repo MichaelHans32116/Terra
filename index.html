@@ -696,6 +696,43 @@
     }
 
     /* Chat Widget Styles */
+    /* Map Zoom Controls (bottom center so they don't overlap the navbar) */
+    .map-zoom-controls {
+      position: fixed;
+      bottom: 90px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 15;
+      display: flex;
+      flex-direction: row;
+      gap: 10px;
+      pointer-events: auto;
+      align-items: center;
+      justify-content: center;
+    }
+    .map-zoom-controls button {
+      width: 46px;
+      height: 46px;
+      border-radius: 12px;
+      border: none;
+      background: rgba(255,255,255,0.95);
+      color: #222;
+      font-size: 20px;
+      cursor: pointer;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .dark-mode .map-zoom-controls button {
+      background: rgba(26,26,26,0.9);
+      color: #fff;
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+    @media (max-width: 768px) {
+      .map-zoom-controls { bottom: 120px; }
+    }
+
     .chat-widget {
       position: fixed;
       bottom: 20px;
@@ -1005,6 +1042,11 @@
   <div id="bgMap" aria-hidden="true"></div>
   <!-- Background overlay used for smooth background-image transitions -->
   <div id="bgOverlay" class="bg-overlay" aria-hidden="true"></div>
+  <!-- Map zoom controls (show when map background enabled) -->
+  <div id="mapZoomControls" class="map-zoom-controls" style="display:none;" aria-hidden="true">
+    <button id="zoomIn" title="Zoom in">+</button>
+    <button id="zoomOut" title="Zoom out">−</button>
+  </div>
   <header>
     <div class="header-top">
       <!-- left group: logo + search -->
@@ -1238,14 +1280,16 @@
   // store the last weather object so we can re-apply photo background when toggling
   let lastWeatherObj = null;
 
-    // Initialize lightweight background Leaflet map (if Leaflet loaded)
-    let bgLeafletMap = null;
+  // Initialize lightweight background Leaflet map (if Leaflet loaded)
+  let bgLeafletMap = null;
+  // store last air quality reading for chat queries
+  let lastAirQuality = null;
     function initBackgroundMap() {
       try {
         // Create the map in the #bgMap container and disable user interactions
         bgLeafletMap = L.map('bgMap', {
           center: [12.8797, 122.5654],
-          zoom: 10,
+          zoom: 13,
           attributionControl: false,
           zoomControl: false,
           dragging: false,
@@ -1267,8 +1311,44 @@
       }
     }
 
+    // Enable full map interactions when map background is active
+    function enableMapInteractions() {
+      if (!bgLeafletMap) return;
+      try {
+        bgLeafletMap.dragging.enable();
+        bgLeafletMap.scrollWheelZoom.enable();
+        bgLeafletMap.doubleClickZoom.enable();
+        bgLeafletMap.boxZoom.enable();
+        bgLeafletMap.touchZoom.enable();
+        bgLeafletMap.keyboard.enable();
+        // No built-in zoom control — we rely on custom controls and direct interactions.
+        const bgMapEl = document.getElementById('bgMap');
+        if (bgMapEl) bgMapEl.style.pointerEvents = 'auto';
+      } catch (e) {
+        console.warn('enableMapInteractions failed', e);
+      }
+    }
+
+    // Disable user interactions so UI captures events
+    function disableMapInteractions() {
+      if (!bgLeafletMap) return;
+      try {
+        try { bgLeafletMap.dragging.disable(); } catch(e){}
+        try { bgLeafletMap.scrollWheelZoom.disable(); } catch(e){}
+        try { bgLeafletMap.doubleClickZoom.disable(); } catch(e){}
+        try { bgLeafletMap.boxZoom.disable(); } catch(e){}
+        try { bgLeafletMap.touchZoom.disable(); } catch(e){}
+        try { bgLeafletMap.keyboard.disable(); } catch(e){}
+        // ensure no built-in zoom control remains (none added)
+        const bgMapEl = document.getElementById('bgMap');
+        if (bgMapEl) bgMapEl.style.pointerEvents = 'none';
+      } catch (e) {
+        console.warn('disableMapInteractions failed', e);
+      }
+    }
+
     // Fly the background map to given lat/lon and optional zoom
-    function flyBackgroundMap(lat, lon, zoom = 15) {
+    function flyBackgroundMap(lat, lon, zoom = 13) {
       if (!bgLeafletMap) return;
       try {
         // Only hide the overlay if the user has enabled the map background setting
@@ -1295,6 +1375,12 @@
     // Initialize background map (non-blocking)
     if (typeof L !== 'undefined' && document.getElementById('bgMap')) {
       initBackgroundMap();
+
+      // wire up map zoom controls (buttons) if present
+      const zoomInBtn = document.getElementById('zoomIn');
+      const zoomOutBtn = document.getElementById('zoomOut');
+      if (zoomInBtn) zoomInBtn.addEventListener('click', () => { try { if (bgLeafletMap) bgLeafletMap.zoomIn(); } catch(e){} });
+      if (zoomOutBtn) zoomOutBtn.addEventListener('click', () => { try { if (bgLeafletMap) bgLeafletMap.zoomOut(); } catch(e){} });
     }
 
     toggle.addEventListener("click", () => {
@@ -1485,7 +1571,8 @@
 
         // Fly the background Leaflet map to the city's coordinates (lat, lon)
         try {
-          flyBackgroundMap(data.coord.lat, data.coord.lon, Math.max(6, Math.min(13, Math.round(data.coord.lat ? 10 : 8))));
+          // use a closer zoom for city view
+          flyBackgroundMap(data.coord.lat, data.coord.lon, 13);
         } catch (e) {
           console.warn('Background map fly failed:', e);
         }
@@ -1588,7 +1675,9 @@
         const pm10 = data.hourly.pm10[currentHour];
         const pm25 = data.hourly.pm2_5[currentHour];
 
-        document.getElementById("aqi").textContent = aqi;
+  document.getElementById("aqi").textContent = aqi;
+  // store last air quality read for chat queries
+  lastAirQuality = { aqi, pm10, pm25, city };
         document.getElementById("airDesc").innerHTML =
           `${aqi <= 50 ? "Good 😊" :
             aqi <= 100 ? "Moderate 😐" :
@@ -1778,15 +1867,44 @@
       const mapToggle = document.getElementById('mapBgToggle');
       const bgMapEl = document.getElementById('bgMap');
       const overlayEl = document.getElementById('bgOverlay');
+      const mapZoomControls = document.getElementById('mapZoomControls');
       if (mapToggle) mapToggle.classList.toggle('active', !!settings.mapBackground);
       // If map background is enabled, hide the overlay so the map shows through.
       if (settings.mapBackground) {
         if (overlayEl) overlayEl.style.opacity = '0';
-        if (bgMapEl) bgMapEl.style.zIndex = '-2';
+        // Bring the map container into the interactive stacking context so it can receive pointer events.
+        // Many UI elements use positive z-index; using 0 allows the map to be above the page background
+        // but still below overlay UI elements that intentionally use higher z-index (header/navbar/chat).
+        if (bgMapEl) bgMapEl.style.zIndex = '0';
+        if (overlayEl) overlayEl.style.zIndex = '-1';
+        if (mapZoomControls) mapZoomControls.style.display = 'flex';
+        // enable user interaction on the background map after the overlay fade
+        setTimeout(() => {
+          try {
+            // if map wasn't initialized for some reason, init it now
+            if (!bgLeafletMap && typeof L !== 'undefined') initBackgroundMap();
+            enableMapInteractions();
+            // Force Leaflet to recalc sizes/render tiles now that the overlay is hidden
+            try { bgLeafletMap && bgLeafletMap.invalidateSize(); } catch (e) {}
+          } catch (e) { console.warn(e); }
+        }, 360);
       } else {
         // When disabled, restore photo overlay (if we have a last known weather image)
-        if (overlayEl) overlayEl.style.opacity = '1';
+        // Restore original stacking order: overlay above map, map back behind UI
+        if (overlayEl) {
+          overlayEl.style.zIndex = '-1';
+          overlayEl.style.opacity = '1';
+        }
+        if (bgMapEl) {
+          // send map back behind the overlay and page content
+          bgMapEl.style.zIndex = '-2';
+          // ensure it doesn't capture pointer events while overlay is shown
+          bgMapEl.style.pointerEvents = 'none';
+        }
         if (lastWeatherObj) updateBackground(lastWeatherObj);
+        if (mapZoomControls) mapZoomControls.style.display = 'none';
+        // disable interactions so UI remains primary
+        try { disableMapInteractions(); } catch(e) { console.warn(e); }
       }
     }
 
@@ -1836,6 +1954,10 @@
       mapToggleBtn.addEventListener('click', (e) => {
         e.preventDefault();
         settings.mapBackground = !settings.mapBackground;
+        // ensure the map is initialized before applying settings if enabling
+        if (settings.mapBackground && !bgLeafletMap && typeof L !== 'undefined') {
+          initBackgroundMap();
+        }
         saveSettings();
         applySettings();
         showNotification(settings.mapBackground ? 'Map background enabled' : 'Photo background enabled');
@@ -2031,25 +2153,67 @@
       }
       
       try {
-        // Process user's question about weather
+        // Process user's question about weather with more capabilities
+        const q = question.toLowerCase();
         let response = "I'll help explain the weather conditions:\n\n";
-        
-        if (question.toLowerCase().includes('temperature')) {
+
+        if (q.includes('temperature')) {
           response += `The temperature is ${lastWeatherData.main.temp.toFixed(1)}°C and feels like ${lastWeatherData.main.feels_like.toFixed(1)}°C.`;
-        } else if (question.toLowerCase().includes('humidity')) {
+        } else if (q.includes('humidity')) {
           response += `The humidity is ${lastWeatherData.main.humidity}%.`;
-        } else if (question.toLowerCase().includes('wind')) {
+        } else if (q.includes('wind')) {
           response += `The wind speed is ${(lastWeatherData.wind.speed * 3.6).toFixed(1)} km/h.`;
-        } else if (question.toLowerCase().includes('weather') || question.toLowerCase().includes('condition')) {
+        } else if (q.includes('weather') || q.includes('condition')) {
           response += `The weather condition is ${lastWeatherData.weather[0].description}.`;
+        } else if (q.includes('sunrise') || q.includes('sun set') || q.includes('sunset')) {
+          if (lastWeatherData.sys && lastWeatherData.sys.sunrise && lastWeatherData.sys.sunset) {
+            const sr = new Date(lastWeatherData.sys.sunrise * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const ss = new Date(lastWeatherData.sys.sunset * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            response = `Sunrise is at ${sr} and sunset is at ${ss} (${lastWeatherData.name}).`;
+          } else {
+            response = "I don't have sunrise/sunset data for this location.";
+          }
+        } else if (q.includes('umbrella') || q.includes('rain') || q.includes('drizzle') || q.includes('shower')) {
+          const desc = lastWeatherData.weather[0].description.toLowerCase();
+          if (desc.includes('rain') || desc.includes('drizzle') || desc.includes('shower') || desc.includes('thunderstorm')) {
+            response = `Yes — there's a chance of rain (condition: ${lastWeatherData.weather[0].description}). Bring an umbrella.`;
+          } else {
+            response = `It doesn't look like rain currently (${lastWeatherData.weather[0].description}). You probably don't need an umbrella, but keep an eye on forecasts.`;
+          }
+        } else if (q.includes('what to wear') || q.includes('clothes') || q.includes('dress')) {
+          const t = lastWeatherData.main.temp;
+          if (t >= 30) response = "It's hot — wear light clothing, breathable fabrics, and stay hydrated.";
+          else if (t >= 20) response = "Mild weather — a t-shirt and light layers should be fine.";
+          else if (t >= 10) response = "Cool — consider a light jacket or sweater.";
+          else response = "Cold — wear a warm coat, scarf, and gloves.";
+        } else if (q.includes('air quality') || q.includes('aqi')) {
+          if (lastAirQuality && typeof lastAirQuality.aqi !== 'undefined') {
+            const a = lastAirQuality.aqi;
+            response = `Current AQI for ${lastAirQuality.city}: ${a} — ${a <= 50 ? 'Good' : a <= 100 ? 'Moderate' : a <= 150 ? 'Unhealthy for sensitive groups' : 'Unhealthy'}.`;
+          } else {
+            response = "I don't have air quality data yet for this location. Try checking the Air section first.";
+          }
+        } else if (q.includes('zoom') && (q.includes('map') || q.includes('background') || q.includes('zoom in') || q.includes('zoom out'))) {
+          // Allow chat to control map zoom
+          if (!bgLeafletMap) {
+            response = "Map is not available right now.";
+          } else if (q.includes('in')) {
+            bgLeafletMap.zoomIn();
+            response = "Zoomed in on the background map.";
+          } else if (q.includes('out')) {
+            bgLeafletMap.zoomOut();
+            response = "Zoomed out on the background map.";
+          } else {
+            response = "You can say 'zoom in' or 'zoom out' to change the map zoom.";
+          }
         } else {
           response += `In ${lastWeatherData.name}, it's currently ${lastWeatherData.main.temp.toFixed(1)}°C with ${lastWeatherData.weather[0].description}.`;
         }
-        
+
         addMessage(response);
       } catch (err) {
         console.error('Error processing question:', err);
-        addMessage("I'm sorry, I couldn't process your question. Try asking about temperature, humidity, wind, or weather conditions.");
+        addMessage("I'm sorry, I couldn't process your question. Try asking about temperature, humidity, wind, sunrise/sunset, umbrella, clothing, or air quality.");
       }
     });
 
