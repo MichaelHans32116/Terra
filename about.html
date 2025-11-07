@@ -510,7 +510,7 @@
         name: "Alex Bumatay",
         role: "Developer",
         description: "Developer and Designer of TerraSync",
-        age: 21,
+        age: 20,
         course: "BSIT-3A Student",
         school: "First Asia Institute of Technology and Humanities",
         github: "Axel0Tell",
@@ -664,8 +664,8 @@
     document.documentElement.style.setProperty('--accent-color', settings.accentColor);
     if (settings.theme === "dark") document.body.classList.add("dark-mode");
 
-  // Use static nature images by default (set to true to enable GIFs)
-  const useGIFBackgrounds = false;
+    // Use static nature images by default (set to true to enable GIFs)
+    const useGIFBackgrounds = false;
 
     function updateBackground(condition) {
       let bgUrl;
@@ -696,7 +696,7 @@
         if (c.includes("rain"))
           bgUrl = "https://images.unsplash.com/photo-1501594907352-04cda38ebc29?auto=format&fit=crop&w=1600&q=80";
         else if (c.includes("cloud")) {
-          // prefer a higher-resolution, cleaner cloud image for light theme
+          // Use the same logic as index.html for cloud images
           if (settings && settings.theme === 'light') {
             bgUrl = "https://images.unsplash.com/photo-1499346030926-9a72daac6c63?auto=format&fit=crop&w=1600&q=80";
           } else {
@@ -707,6 +707,7 @@
           bgUrl = "https://images.unsplash.com/photo-1502082553048-f009c37129b9?auto=format&fit=crop&w=1600&q=80";
         else
           bgUrl = "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1600&q=80";
+        
         document.body.style.backgroundImage = `url('${bgUrl}')`;
       }
     }
@@ -726,6 +727,7 @@
       }
     }
 
+    // Get the same city as index.html
     getWeatherBackground(settings.defaultCity);
   </script>
 </body>

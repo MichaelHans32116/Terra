@@ -1237,7 +1237,7 @@
     <a href="#" class="nav-item" data-target="climateSection">🌍<br><span>Climate</span></a>
     <a href="#" class="nav-item" data-target="trendsSection">📊<br><span>Trends</span></a>
     <!-- Map background toggle: lets user choose map vs photo background -->
-    <a href="#" id="mapBgToggle" class="nav-item" title="Toggle map background">🗺️<br><span>Map</span></a>
+    <a href="#" id="mapBgToggle" class="nav-item" title="Toggle map background">🗺️<br><span id="mapToggleText">Map</span></a>
     <a href="#" class="nav-item" data-target="settingsSection">⚙️<br><span>Settings</span></a>
     <a href="about.html" class="nav-item">ℹ️<br><span>About</span></a>
   </nav>
@@ -1378,6 +1378,14 @@
         console.warn('disableMapInteractions failed', e);
       }
     }
+
+    // Add this function to update the toggle text
+function updateMapToggleText() {
+  const mapToggleText = document.getElementById('mapToggleText');
+  if (mapToggleText) {
+    mapToggleText.textContent = settings.mapBackground ? 'BG Image' : 'Map';
+  }
+}
 
     // Fly the background map to given lat/lon and optional zoom
     function flyBackgroundMap(lat, lon, zoom = 13) {
@@ -2041,6 +2049,8 @@
       const overlayEl = document.getElementById('bgOverlay');
       const mapZoomControls = document.getElementById('mapZoomControls');
       if (mapToggle) mapToggle.classList.toggle('active', !!settings.mapBackground);
+
+      updateMapToggleText();
       // If map background is enabled, hide the overlay so the map shows through.
       if (settings.mapBackground) {
         if (overlayEl) overlayEl.style.opacity = '0';
@@ -2125,19 +2135,20 @@
 
     // Map background toggle from navbar
     const mapToggleBtn = document.getElementById('mapBgToggle');
-    if (mapToggleBtn) {
-      mapToggleBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        settings.mapBackground = !settings.mapBackground;
-        // ensure the map is initialized before applying settings if enabling
-        if (settings.mapBackground && !bgLeafletMap && typeof L !== 'undefined') {
-          initBackgroundMap();
-        }
-        saveSettings();
-        applySettings();
-        showNotification(settings.mapBackground ? 'Map background enabled' : 'Photo background enabled');
-      });
+if (mapToggleBtn) {
+  mapToggleBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    settings.mapBackground = !settings.mapBackground;
+    // ensure the map is initialized before applying settings if enabling
+    if (settings.mapBackground && !bgLeafletMap && typeof L !== 'undefined') {
+      initBackgroundMap();
     }
+    saveSettings();
+    applySettings();
+    updateMapToggleText(); // Add this line
+    showNotification(settings.mapBackground ? 'Map background enabled' : 'Photo background enabled');
+  });
+}
 
     // Show notification function
     function showNotification(message, duration = 3000) {
