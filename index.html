@@ -2605,7 +2605,26 @@ if (mapToggleBtn) {
     document.documentElement.style.setProperty('--accent-color', '#0078ff');
     document.getElementById('accentColor').value = '#0078ff';
     loadSettings();
-    getWeather(settings.defaultCity);
+    // Try to use browser geolocation for default location. If permission denied or unavailable,
+    // fall back to the saved/default city in settings.
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(async (pos) => {
+        try {
+          const { latitude, longitude } = pos.coords;
+          // Use the coords-based weather loader (keeps UI consistent)
+          await getWeatherByCoords(latitude, longitude);
+        } catch (e) {
+          console.warn('getWeatherByCoords failed after geolocation, falling back:', e);
+          getWeather(settings.defaultCity);
+        }
+      }, (err) => {
+        console.warn('Geolocation failed or denied, falling back to default city', err);
+        getWeather(settings.defaultCity);
+      }, { enableHighAccuracy: true, timeout: 5000, maximumAge: 60000 });
+    } else {
+      // Geolocation not supported in this browser
+      getWeather(settings.defaultCity);
+    }
   </script>
 </body>
 </html>
